@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
 
-  <title><![CDATA[有人生准则么]]></title>
+  <title><![CDATA[无聊看代码]]></title>
   <link href="http://CharlesWang.github.io/atom.xml" rel="self"/>
   <link href="http://CharlesWang.github.io/"/>
-  <updated>2014-08-15T12:41:52+08:00</updated>
+  <updated>2014-08-15T13:43:15+08:00</updated>
   <id>http://CharlesWang.github.io/</id>
   <author>
     <name><![CDATA[Charles Wang]]></name>
@@ -12,6 +12,17 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Github+octopress博客配置]]></title>
+    <link href="http://CharlesWang.github.io/blog/2014/08/15/github-plus-octopressbo-ke-pei-zhi/"/>
+    <updated>2014-08-15T13:26:46+08:00</updated>
+    <id>http://CharlesWang.github.io/blog/2014/08/15/github-plus-octopressbo-ke-pei-zhi</id>
+    <content type="html"><![CDATA[<p>[<a href="http://justcoding.iteye.com/blog/1954645">http://justcoding.iteye.com/blog/1954645</a> 教程]
+[<a href="https://ruby-china.org/topics/692">https://ruby-china.org/topics/692</a>  nodejs安装]
+[<a href="http://stackoverflow.com/questions/21356212/failed-to-deploy-to-github-pages-using-octopress">http://stackoverflow.com/questions/21356212/failed-to-deploy-to-github-pages-using-octopress</a> rake deploy失败]</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[First Post Test]]></title>

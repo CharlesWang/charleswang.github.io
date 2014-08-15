@@ -3,6 +3,12 @@
   
   
   <url>
+    <loc>http://CharlesWang.github.io/blog/2014/08/15/github-plus-octopressbo-ke-pei-zhi/</loc>
+    <lastmod>2014-08-15T13:26:46+08:00</lastmod>
+    <priority>0.8</priority>
+  </url>
+  
+  <url>
     <loc>http://CharlesWang.github.io/blog/2014/08/15/first-post-test/</loc>
     <lastmod>2014-08-15T12:39:48+08:00</lastmod>
     <priority>0.8</priority>
@@ -11,14 +17,14 @@
   
   <url>
     <loc>http://CharlesWang.github.io/</loc>
-    <lastmod>2014-08-15T12:41:52+08:00</lastmod>
+    <lastmod>2014-08-15T13:43:15+08:00</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   
   <url>
     <loc>http://CharlesWang.github.io/blog/archives/</loc>
-    <lastmod>2014-08-15T12:41:52+08:00</lastmod>
+    <lastmod>2014-08-15T13:43:15+08:00</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
