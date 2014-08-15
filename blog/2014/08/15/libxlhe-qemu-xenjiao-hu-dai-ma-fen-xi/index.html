@@ -1,24 +1,90 @@
-<?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom">
 
-  <title><![CDATA[无聊看代码]]></title>
-  <link href="http://CharlesWang.github.io/atom.xml" rel="self"/>
-  <link href="http://CharlesWang.github.io/"/>
-  <updated>2014-08-15T14:04:20+08:00</updated>
-  <id>http://CharlesWang.github.io/</id>
-  <author>
-    <name><![CDATA[Charles Wang]]></name>
-    
-  </author>
-  <generator uri="http://octopress.org/">Octopress</generator>
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Libxl和qemu-xen交互代码分析 - 无聊看代码</title>
+  <meta name="author" content="Charles Wang">
 
   
-  <entry>
-    <title type="html"><![CDATA[Libxl和qemu-xen交互代码分析]]></title>
-    <link href="http://CharlesWang.github.io/blog/2014/08/15/libxlhe-qemu-xenjiao-hu-dai-ma-fen-xi/"/>
-    <updated>2014-08-15T13:51:05+08:00</updated>
-    <id>http://CharlesWang.github.io/blog/2014/08/15/libxlhe-qemu-xenjiao-hu-dai-ma-fen-xi</id>
-    <content type="html"><![CDATA[<h2>libxl对qemu-dm参数解析</h2>
+  <meta name="description" content="libxl对qemu-dm参数解析 main_create--&gt;create_domain-&gt;parse_config_data static void parse_config_data(const char *config_source, const char * &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://CharlesWang.github.io/blog/2014/08/15/libxlhe-qemu-xenjiao-hu-dai-ma-fen-xi">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="/atom.xml" rel="alternate" title="无聊看代码" type="application/atom+xml">
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="./javascripts/libs/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+
+  
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">无聊看代码</a></h1>
+  
+    <h2>修三年八哥，看一世代码</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="https://www.google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="q" value="site:CharlesWang.github.io" />
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">Libxl和qemu-xen交互代码分析</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2014-08-15T13:51:05+08:00'><span class='date'><span class='date-month'>Aug</span> <span class='date-day'>15</span><span class='date-suffix'>th</span>, <span class='date-year'>2014</span></span> <span class='time'>1:51 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><h2>libxl对qemu-dm参数解析</h2>
 
 <pre><code>main_create--&gt;create_domain-&gt;parse_config_data
 
@@ -890,18 +956,101 @@ static void pc_init1(MemoryRegion *system_memory,
     }
 }
 </code></pre>
-]]></content>
-  </entry>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
   
-  <entry>
-    <title type="html"><![CDATA[Github+octopress博客配置]]></title>
-    <link href="http://CharlesWang.github.io/blog/2014/08/15/github-plus-octopressbo-ke-pei-zhi/"/>
-    <updated>2014-08-15T13:26:46+08:00</updated>
-    <id>http://CharlesWang.github.io/blog/2014/08/15/github-plus-octopressbo-ke-pei-zhi</id>
-    <content type="html"><![CDATA[<p><a href="http://justcoding.iteye.com/blog/1954645" title="教程">教程</a>
-<a href="https://ruby-china.org/topics/692" title="nodejs安装">nodejs安装</a>
-<a href="http://stackoverflow.com/questions/21356212/failed-to-deploy-to-github-pages-using-octopress" title="rake deploy失败">rake deploy失败</a></p>
-]]></content>
-  </entry>
+
+<span class="byline author vcard">Posted by <span class="fn">Charles Wang</span></span>
+
+      
+
+
+
+
+<time class='entry-date' datetime='2014-08-15T13:51:05+08:00'><span class='date'><span class='date-month'>Aug</span> <span class='date-day'>15</span><span class='date-suffix'>th</span>, <span class='date-year'>2014</span></span> <span class='time'>1:51 pm</span></time>
+      
+
+
+    </p>
+    
+      <div class="sharing">
   
-</feed>
+  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://CharlesWang.github.io/blog/2014/08/15/libxlhe-qemu-xenjiao-hu-dai-ma-fen-xi/" data-via="" data-counturl="http://CharlesWang.github.io/blog/2014/08/15/libxlhe-qemu-xenjiao-hu-dai-ma-fen-xi/" >Tweet</a>
+  
+  
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2014/08/15/github-plus-octopressbo-ke-pei-zhi/" title="Previous Post: github+octopress博客配置">&laquo; github+octopress博客配置</a>
+      
+      
+    </p>
+  </footer>
+</article>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2014/08/15/libxlhe-qemu-xenjiao-hu-dai-ma-fen-xi/">Libxl和qemu-xen交互代码分析</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2014/08/15/github-plus-octopressbo-ke-pei-zhi/">Github+octopress博客配置</a>
+      </li>
+    
+  </ul>
+</section>
+
+
+
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2014 - Charles Wang -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+
+
+
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = '//platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+</html>

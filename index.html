@@ -9,10 +9,7 @@
   <meta name="author" content="Charles Wang">
 
   
-  <meta name="description" content="教程
-nodejs安装
-rake deploy失败
-">
+  <meta name="description" content="libxl对qemu-dm参数解析 main_create--&gt;create_domain-&gt;parse_config_data static void parse_config_data(const char *config_source, const char * &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -74,6 +71,906 @@ rake deploy失败
       
   <header>
     
+      <h1 class="entry-title"><a href="/blog/2014/08/15/libxlhe-qemu-xenjiao-hu-dai-ma-fen-xi/">Libxl和qemu-xen交互代码分析</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2014-08-15T13:51:05+08:00'><span class='date'><span class='date-month'>Aug</span> <span class='date-day'>15</span><span class='date-suffix'>th</span>, <span class='date-year'>2014</span></span> <span class='time'>1:51 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><h2>libxl对qemu-dm参数解析</h2>
+
+<pre><code>main_create--&gt;create_domain-&gt;parse_config_data
+
+static void parse_config_data(const char *config_source,
+                              const char *config_data,
+                              int config_len,
+                              libxl_domain_config *d_config,
+                              struct domain_create *dom_info)
+
+{
+    ....
+    if (!xlu_cfg_get_string (config, "builder", &amp;buf, 0) &amp;&amp;
+        !strncmp(buf, "hvm", strlen(buf)))
+        c_info-&gt;type = LIBXL_DOMAIN_TYPE_HVM;                      //设置type为HVM
+
+    ....
+
+    /* parse device model arguments, this works for pv, hvm and stubdom */
+    if (!xlu_cfg_get_string (config, "device_model", &amp;buf, 0)) {
+        fprintf(stderr,
+                "WARNING: ignoring device_model directive.\n"
+                "WARNING: Use \"device_model_override\" instead if you"
+                " really want a non-default device_model\n");
+        if (strstr(buf, "stubdom-dm")) {
+            if (c_info-&gt;type == LIBXL_DOMAIN_TYPE_HVM)
+                fprintf(stderr, "WARNING: Or use"
+                        " \"device_model_stubdomain_override\" if you "
+                        " want to enable stubdomains\n");
+            else
+                fprintf(stderr, "WARNING: ignoring"
+                        " \"device_model_stubdomain_override\" directive"
+                        " for pv guest\n");
+        }
+    }
+
+
+    xlu_cfg_replace_string (config, "device_model_override",
+                            &amp;b_info-&gt;device_model, 0);                   //设置device_model为config中的路径
+    if (!xlu_cfg_get_string (config, "device_model_version", &amp;buf, 0)) {
+        if (!strcmp(buf, "qemu-xen-traditional")) {
+            b_info-&gt;device_model_version
+                = LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN_TRADITIONAL;
+        } else if (!strcmp(buf, "qemu-xen")) {
+            b_info-&gt;device_model_version
+                = LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN;                    //设置device_model_version为qemu_xen
+        } else {
+            fprintf(stderr,
+                    "Unknown device_model_version \"%s\" specified\n", buf);
+            exit(1);
+        }
+    } else if (b_info-&gt;device_model)
+        fprintf(stderr, "WARNING: device model override given without specific DM version\n");
+    xlu_cfg_get_defbool (config, "device_model_stubdomain_override",
+                         &amp;b_info-&gt;device_model_stubdomain, 0);
+
+    ....
+}
+
+main_create--&gt;create_domain--&gt;do_domain_create--&gt;initiate_domain_create--&gt;libxl__domain_build_info_setdefault
+
+int libxl__domain_build_info_setdefault(libxl__gc *gc,
+                                        libxl_domain_build_info *b_info)
+{ 
+    ....
+
+    if (b_info-&gt;type == LIBXL_DOMAIN_TYPE_HVM) {
+        if (!b_info-&gt;u.hvm.bios)
+            switch (b_info-&gt;device_model_version) {
+            case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN_TRADITIONAL:
+                b_info-&gt;u.hvm.bios = LIBXL_BIOS_TYPE_ROMBIOS; break;
+            case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN:
+                b_info-&gt;u.hvm.bios = LIBXL_BIOS_TYPE_SEABIOS; break;
+            default:return ERROR_INVAL;
+            }
+
+        /* Enforce BIOS&lt;-&gt;Device Model version relationship */
+        switch (b_info-&gt;device_model_version) {
+        case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN_TRADITIONAL:
+            if (b_info-&gt;u.hvm.bios != LIBXL_BIOS_TYPE_ROMBIOS)
+                return ERROR_INVAL;
+            break;
+        case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN:
+            if (b_info-&gt;u.hvm.bios == LIBXL_BIOS_TYPE_ROMBIOS)
+                return ERROR_INVAL;
+            break;
+        default:abort();
+        }
+    }
+
+    ....
+
+    switch (b_info-&gt;type) {
+    case LIBXL_DOMAIN_TYPE_HVM:
+        if (b_info-&gt;shadow_memkb == LIBXL_MEMKB_DEFAULT)
+            b_info-&gt;shadow_memkb = 0;
+
+        if (b_info-&gt;u.hvm.vga.kind == LIBXL_VGA_INTERFACE_TYPE_STD &amp;&amp;
+            b_info-&gt;device_model_version ==
+            LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN) {
+                if (b_info-&gt;video_memkb == LIBXL_MEMKB_DEFAULT)
+                    b_info-&gt;video_memkb = 16 * 1024;
+                else if (b_info-&gt;video_memkb &lt; (16 * 1024) ){
+                    LOG(ERROR, "videoram must be at least 16 mb with stdvga");
+                    return ERROR_INVAL;
+                }
+        } else if (b_info-&gt;video_memkb == LIBXL_MEMKB_DEFAULT)
+            b_info-&gt;video_memkb = 8 * 1024;
+        else if (b_info-&gt;video_memkb &lt; (8 * 1024) ){
+            LOG(ERROR,"videoram must be at least 8 mb");
+            return ERROR_INVAL;
+        }
+
+        if (b_info-&gt;u.hvm.timer_mode == LIBXL_TIMER_MODE_DEFAULT)
+            b_info-&gt;u.hvm.timer_mode =
+                LIBXL_TIMER_MODE_NO_DELAY_FOR_MISSED_TICKS;
+
+        libxl_defbool_setdefault(&amp;b_info-&gt;u.hvm.pae,                true);
+        libxl_defbool_setdefault(&amp;b_info-&gt;u.hvm.apic,               true);
+        libxl_defbool_setdefault(&amp;b_info-&gt;u.hvm.acpi,               true);
+        libxl_defbool_setdefault(&amp;b_info-&gt;u.hvm.acpi_s3,            true);
+        libxl_defbool_setdefault(&amp;b_info-&gt;u.hvm.acpi_s4,            true);
+        libxl_defbool_setdefault(&amp;b_info-&gt;u.hvm.nx,                 true);
+        libxl_defbool_setdefault(&amp;b_info-&gt;u.hvm.viridian,           false);
+        libxl_defbool_setdefault(&amp;b_info-&gt;u.hvm.hpet,               true);
+        libxl_defbool_setdefault(&amp;b_info-&gt;u.hvm.vpt_align,          true);
+        libxl_defbool_setdefault(&amp;b_info-&gt;u.hvm.nested_hvm,         false);
+        libxl_defbool_setdefault(&amp;b_info-&gt;u.hvm.usb,                false);
+        libxl_defbool_setdefault(&amp;b_info-&gt;u.hvm.xen_platform_pci,   true);
+
+        if (!b_info-&gt;u.hvm.boot) {
+            b_info-&gt;u.hvm.boot = strdup("cda");
+            if (!b_info-&gt;u.hvm.boot) return ERROR_NOMEM;
+        }
+
+        if (!b_info-&gt;u.hvm.vga.kind)
+            b_info-&gt;u.hvm.vga.kind = LIBXL_VGA_INTERFACE_TYPE_CIRRUS;
+        libxl_defbool_setdefault(&amp;b_info-&gt;u.hvm.vnc.enable, true);
+        if (libxl_defbool_val(b_info-&gt;u.hvm.vnc.enable)) {
+            libxl_defbool_setdefault(&amp;b_info-&gt;u.hvm.vnc.findunused, true);
+            if (!b_info-&gt;u.hvm.vnc.listen) {
+                b_info-&gt;u.hvm.vnc.listen = strdup("127.0.0.1");
+                if (!b_info-&gt;u.hvm.vnc.listen) return ERROR_NOMEM;
+            }
+        }
+
+        libxl_defbool_setdefault(&amp;b_info-&gt;u.hvm.sdl.enable, false);
+        if (libxl_defbool_val(b_info-&gt;u.hvm.sdl.enable)) {
+            libxl_defbool_setdefault(&amp;b_info-&gt;u.hvm.sdl.opengl, false);
+        }
+
+        libxl_defbool_setdefault(&amp;b_info-&gt;u.hvm.spice.enable, false);
+        if (libxl_defbool_val(b_info-&gt;u.hvm.spice.enable)) {
+            libxl_defbool_setdefault(&amp;b_info-&gt;u.hvm.spice.disable_ticketing,
+                                     false);
+            libxl_defbool_setdefault(&amp;b_info-&gt;u.hvm.spice.agent_mouse, true);
+        }
+
+        libxl_defbool_setdefault(&amp;b_info-&gt;u.hvm.nographic, false);
+
+        libxl_defbool_setdefault(&amp;b_info-&gt;u.hvm.gfx_passthru, false);
+
+        break;
+    ....
+    }
+    return 0;
+}
+
+
+static void initiate_domain_create(libxl__egc *egc,
+                                   libxl__domain_create_state *dcs)
+{
+    ...
+    ret = libxl__domain_create_info_setdefault(gc, &amp;d_config-&gt;c_info);
+    if (ret) goto error_out;
+
+    ...
+
+    if (restore_fd &gt;= 0) {
+        LOG(DEBUG, "restoring, not running bootloader\n");
+        domcreate_bootloader_done(egc, &amp;dcs-&gt;bl, 0);
+    } else  {
+        LOG(DEBUG, "running bootloader");
+        dcs-&gt;bl.callback = domcreate_bootloader_done;
+        dcs-&gt;bl.console_available = domcreate_bootloader_console_available;
+        dcs-&gt;bl.info = &amp;d_config-&gt;b_info;
+        dcs-&gt;bl.disk = bootdisk;
+        dcs-&gt;bl.domid = dcs-&gt;guest_domid;
+
+        dcs-&gt;bl.kernel = &amp;dcs-&gt;build_state.pv_kernel;
+        dcs-&gt;bl.ramdisk = &amp;dcs-&gt;build_state.pv_ramdisk;
+
+        libxl__bootloader_run(egc, &amp;dcs-&gt;bl);
+    }
+    return;
+    ....
+}
+
+void libxl__bootloader_run(libxl__egc *egc, libxl__bootloader_state *bl)
+{
+    ...
+    libxl__bootloader_init(bl);
+
+    if (info-&gt;type != LIBXL_DOMAIN_TYPE_PV) {
+        LOG(DEBUG, "not a PV domain, skipping bootloader");
+        rc = 0;
+        goto out_ok;
+    }
+
+    ...
+
+out_ok:
+    free(logfile_tmp);
+    bootloader_callback(egc, bl, rc);
+}
+
+static void bootloader_local_detached_cb(libxl__egc *egc,
+                                         libxl__disk_local_state *dls,
+                                         int rc)
+{
+    STATE_AO_GC(dls-&gt;ao);
+    libxl__bootloader_state *bl = CONTAINER_OF(dls, *bl, dls);
+
+    ...
+
+    bl-&gt;callback(egc, bl, bl-&gt;rc);
+}
+
+static void bootloader_callback(libxl__egc *egc, libxl__bootloader_state *bl,
+                                int rc)
+{
+    if (!bl-&gt;rc)
+        bl-&gt;rc = rc;
+
+    bootloader_cleanup(egc, bl);
+
+    bl-&gt;dls.callback = bootloader_local_detached_cb;
+    libxl__device_disk_local_initiate_detach(egc, &amp;bl-&gt;dls);
+}
+
+void libxl__device_disk_local_initiate_detach(libxl__egc *egc,
+                                     libxl__disk_local_state *dls)
+{
+
+    ...
+
+out:
+    aodev-&gt;rc = rc;
+    local_device_detach_cb(egc, aodev);
+    return;
+}
+
+static void local_device_detach_cb(libxl__egc *egc, libxl__ao_device *aodev)
+{
+    STATE_AO_GC(aodev-&gt;ao);
+    libxl__disk_local_state *dls = CONTAINER_OF(aodev, *dls, aodev);
+    ...
+    rc = dls-&gt;rc ? dls-&gt;rc : aodev-&gt;rc;
+    dls-&gt;callback(egc, dls, rc);
+    return;
+}
+
+initiate_domain_create--&gt;domcreate_bootloader_done
+
+static void domcreate_bootloader_done(libxl__egc *egc,
+                                      libxl__bootloader_state *bl,
+                                      int rc)
+{
+    libxl__domain_create_state *dcs = CONTAINER_OF(bl, *dcs, bl);
+    ...
+    dcs-&gt;dmss.dm.spawn.ao = ao;
+    dcs-&gt;dmss.dm.guest_config = dcs-&gt;guest_config;
+    dcs-&gt;dmss.dm.build_state = &amp;dcs-&gt;build_state;
+    dcs-&gt;dmss.dm.callback = domcreate_devmodel_started;
+    dcs-&gt;dmss.callback = domcreate_devmodel_started;
+
+    if ( restore_fd &lt; 0 ) {
+        rc = libxl__domain_build(gc, d_config, domid, state);
+        domcreate_rebuild_done(egc, dcs, rc);
+        return;
+    }
+    ...
+}
+
+static void domcreate_rebuild_done(libxl__egc *egc,
+                                   libxl__domain_create_state *dcs,
+                                   int ret)
+{
+    ...
+    store_libxl_entry(gc, domid, &amp;d_config-&gt;b_info);
+
+    libxl__multidev_begin(ao, &amp;dcs-&gt;multidev);
+    dcs-&gt;multidev.callback = domcreate_launch_dm;
+    libxl__add_disks(egc, ao, domid, d_config, &amp;dcs-&gt;multidev);
+    libxl__multidev_prepared(egc, &amp;dcs-&gt;multidev, 0);
+
+    return;
+    ...
+}
+
+static void domcreate_launch_dm(libxl__egc *egc, libxl__multidev *multidev,
+                                int ret)
+{
+    libxl__domain_create_state *dcs = CONTAINER_OF(multidev, *dcs, multidev);
+    STATE_AO_GC(dcs-&gt;ao);
+
+    ...
+
+    for (i = 0; i &lt; d_config-&gt;b_info.num_ioports; i++) {
+        libxl_ioport_range *io = &amp;d_config-&gt;b_info.ioports[i];
+
+        LOG(DEBUG, "dom%d ioports %"PRIx32"-%"PRIx32,
+            domid, io-&gt;first, io-&gt;first + io-&gt;number - 1);
+
+        ret = xc_domain_ioport_permission(CTX-&gt;xch, domid,
+                                          io-&gt;first, io-&gt;number, 1);
+        if (ret &lt; 0) {          
+            LOGE(ERROR,         
+                 "failed give dom%d access to ioports %"PRIx32"-%"PRIx32,
+                 domid, io-&gt;first, io-&gt;first + io-&gt;number - 1);
+            ret = ERROR_FAIL;
+        }              
+    }
+
+    ...
+
+    switch (d_config-&gt;c_info.type) {
+    case LIBXL_DOMAIN_TYPE_HVM:
+    {
+        libxl__device_console console;
+        libxl_device_vkb vkb;
+
+        ret = init_console_info(&amp;console, 0);
+        if ( ret )
+            goto error_out;
+        console.backend_domid = state-&gt;console_domid;
+        libxl__device_console_add(gc, domid, &amp;console, state);
+        libxl__device_console_dispose(&amp;console);
+
+        libxl_device_vkb_init(&amp;vkb);
+        libxl__device_vkb_add(gc, domid, &amp;vkb);
+        libxl_device_vkb_dispose(&amp;vkb);
+
+        dcs-&gt;dmss.dm.guest_domid = domid;
+        if (libxl_defbool_val(d_config-&gt;b_info.device_model_stubdomain))
+            libxl__spawn_stub_dm(egc, &amp;dcs-&gt;dmss);
+        else
+            libxl__spawn_local_dm(egc, &amp;dcs-&gt;dmss.dm);
+        return;
+    }
+    ...
+}
+
+void libxl__spawn_local_dm(libxl__egc *egc, libxl__dm_spawn_state *dmss)
+{
+    ...
+    dm = libxl__domain_device_model(gc, b_info);
+    ...
+    args = libxl__build_device_model_args(gc, dm, domid, guest_config, state);
+    ...
+    if (b_info-&gt;type == LIBXL_DOMAIN_TYPE_HVM) {
+        path = xs_get_domain_path(ctx-&gt;xsh, domid);
+        libxl__xs_write(gc, XBT_NULL,
+                        libxl__sprintf(gc, "%s/hvmloader/bios", path),
+                        "%s", libxl_bios_type_to_string(b_info-&gt;u.hvm.bios));
+        /* Disable relocating memory to make the MMIO hole larger
+         * unless we're running qemu-traditional */
+        libxl__xs_write(gc, XBT_NULL,
+                        libxl__sprintf(gc,
+                                       "%s/hvmloader/allow-memory-relocate",
+                                       path),
+                        "%d",
+                        b_info-&gt;device_model_version==LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN_TRADITIONAL);
+        free(path);
+    }
+
+    path = libxl__sprintf(gc, "/local/domain/0/device-model/%d", domid);
+    xs_mkdir(ctx-&gt;xsh, XBT_NULL, path);
+
+    if (b_info-&gt;type == LIBXL_DOMAIN_TYPE_HVM &amp;&amp;
+        b_info-&gt;device_model_version
+        == LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN_TRADITIONAL)
+        libxl__xs_write(gc, XBT_NULL, libxl__sprintf(gc, "%s/disable_pf", path),
+                    "%d", !libxl_defbool_val(b_info-&gt;u.hvm.xen_platform_pci));
+
+    libxl_create_logfile(ctx,
+                         libxl__sprintf(gc, "qemu-dm-%s", c_info-&gt;name),
+                         &amp;logfile);
+    logfile_w = open(logfile, O_WRONLY|O_CREAT|O_APPEND, 0644);
+    ...
+    LIBXL__LOG(CTX, XTL_DEBUG, "Spawning device-model %s with arguments:", dm);
+    for (arg = args; *arg; arg++)
+        LIBXL__LOG(CTX, XTL_DEBUG, "  %s", *arg);
+
+    spawn-&gt;what = GCSPRINTF("domain %d device model", domid);
+    spawn-&gt;xspath = GCSPRINTF("/local/domain/0/device-model/%d/state", domid);
+    spawn-&gt;timeout_ms = LIBXL_DEVICE_MODEL_START_TIMEOUT * 1000;
+    spawn-&gt;pidpath = GCSPRINTF("%s/image/device-model-pid", dom_path);
+    spawn-&gt;midproc_cb = libxl__spawn_record_pid;
+    spawn-&gt;confirm_cb = device_model_confirm;
+    spawn-&gt;failure_cb = device_model_startup_failed;
+    spawn-&gt;detached_cb = device_model_detached;
+
+    rc = libxl__spawn_spawn(egc, spawn);
+    if (rc &lt; 0)
+        goto out_close;
+    if (!rc) { /* inner child */
+        setsid();
+        libxl__exec(gc, null, logfile_w, logfile_w, dm, args, NULL);   // dm为qemu-dm，args为启动参数
+    }
+    ...
+}
+
+libxl__build_device_model_args--&gt;libxl__build_device_model_args_new  设置qemu-dm启动参数
+</code></pre>
+
+<h2>qemu部分</h2>
+
+<p><strong>DomU配置文件</strong>：</p>
+
+<pre><code>builder="hvm"
+name = "baseos5u7"
+device_model_override = "/usr/bin/qemu-system-i386"
+device_model_version = "qemu-xen" 
+
+memory = 4096
+vcpus=2
+cpus = "6-7"
+vif = [ 'type=netfront, bridge=peth0, mac=00:16:3e:6f:f3:e8, rx_rate=1000Kb/s']
+disk = [ 'tap2:vhd:/home/muming.wq/image/hvm/baseos5u7.vhd,hda,w', ]
+
+boot = "c"
+xen_platform_pci=1
+apic=1
+sdl = 0
+opengl = 1
+vnc = 1
+vnclisten = "0.0.0.0"
+vncpasswd = 'aaaa'
+stdvga = 0
+serial = 'pty'
+localtime = 1
+usb = 1
+dhcp = 'off'
+on_crash = "preserve"
+serial = "pty"
+#timer_mode="no_missed_ticks_pending"
+</code></pre>
+
+<p><strong>DomU qemu-dm启动参数</strong>：</p>
+
+<p>/usr/bin/qemu-system-i386 -xen-domid 5 -chardev socket,id=libxl-cmd,path=/var/run/xen/qmp-libxl-5,server,nowait -mon chardev=libxl-cmd,mode=control -name fedora -vnc 0.0.0.0:0,to=99 -global isa-fdc.driveA= -serial pty -vga cirrus -global vga.vram_size_mb=8 -boot order=cd -usb -smp 6,maxcpus=6 -net none -M xenfv -m 4088 -drive file=/home/muming.wq/image/hvm/fedora-vmdisk.img,if=ide,index=0,media=disk,format=raw,cache=writeback</p>
+
+<pre><code>tools/qemu-xen/vl.c
+int main(int argc, char **argv, char **envp)
+{
+    ....
+    for(;;) {
+        ....
+            switch(popt-&gt;index) {
+            case QEMU_OPTION_M:                  // -M xenfv 参数解析
+                machine = machine_parse(optarg);
+                break;
+    }
+    ....
+    QEMUMachineInitArgs args = { .ram_size = ram_size,
+                                 .boot_device = boot_devices,
+                                 .kernel_filename = kernel_filename,
+                                 .kernel_cmdline = kernel_cmdline,
+                                 .initrd_filename = initrd_filename,
+                                 .cpu_model = cpu_model };
+    machine-&gt;init(&amp;args);
+    ....
+}
+
+static QEMUMachine *machine_parse(const char *name)
+{
+    QEMUMachine *m, *machine = NULL;
+
+    if (name) {
+        machine = find_machine(name);
+    }
+    if (machine) {
+        return machine;
+    }
+    ....
+}
+
+static QEMUMachine *find_machine(const char *name)
+{       
+    QEMUMachine *m;
+
+    for(m = first_machine; m != NULL; m = m-&gt;next) {
+        if (!strcmp(m-&gt;name, name))                 //通过名字匹配
+            return m;
+        if (m-&gt;alias &amp;&amp; !strcmp(m-&gt;alias, name))
+            return m;
+    }          
+    return NULL;
+}
+
+int qemu_register_machine(QEMUMachine *m)
+{   
+    QEMUMachine **pm;
+    pm = &amp;first_machine;
+    while (*pm != NULL)
+        pm = &amp;(*pm)-&gt;next;
+    m-&gt;next = NULL; 
+    *pm = m;
+    return 0; 
+}
+
+#ifdef CONFIG_XEN
+static QEMUMachine xenfv_machine = {
+    .name = "xenfv",
+    .desc = "Xen Fully-virtualized PC",
+    .init = pc_xen_hvm_init,
+    .max_cpus = HVM_MAX_VCPUS,
+    .default_machine_opts = "accel=xen",
+    .hot_add_cpu = piix4_cpu_hotplug_add,
+};      
+#endif      
+
+static void pc_machine_init(void)
+{
+    qemu_register_machine(&amp;pc_machine_v1_3);
+    qemu_register_machine(&amp;pc_machine_v1_2);
+    qemu_register_machine(&amp;pc_machine_v1_1);
+    qemu_register_machine(&amp;pc_machine_v1_0);
+    qemu_register_machine(&amp;pc_machine_v0_15);
+    qemu_register_machine(&amp;pc_machine_v0_14);
+    qemu_register_machine(&amp;pc_machine_v0_13);
+    qemu_register_machine(&amp;pc_machine_v0_12);
+    qemu_register_machine(&amp;pc_machine_v0_11);
+    qemu_register_machine(&amp;pc_machine_v0_10);
+    qemu_register_machine(&amp;isapc_machine);
+#ifdef CONFIG_XEN
+    qemu_register_machine(&amp;xenfv_machine);
+#endif
+}
+
+machine_init(pc_machine_init);
+
+#define machine_init(function) module_init(function, MODULE_INIT_MACHINE)
+
+static void pc_xen_hvm_init(QEMUMachineInitArgs *args)
+{   
+    if (xen_hvm_init() != 0) {
+        hw_error("xen hardware virtual machine initialisation failed");
+    }
+    pc_init_pci_no_kvmclock(args);
+    xen_vcpu_init();
+}
+</code></pre>
+
+<h4>xen_hvm_init</h4>
+
+<pre><code>int xen_hvm_init(void)
+{
+    int i, rc;
+    unsigned long ioreq_pfn;
+    unsigned long bufioreq_evtchn;
+    XenIOState *state;
+
+    state = g_malloc0(sizeof (XenIOState));
+
+    state-&gt;xce_handle = xen_xc_evtchn_open(NULL, 0);
+    ...
+    state-&gt;xenstore = xs_daemon_open();
+    ...
+    state-&gt;exit.notify = xen_exit_notifier;        // 退出消息回调
+    qemu_add_exit_notifier(&amp;state-&gt;exit);
+
+    state-&gt;suspend.notify = xen_suspend_notifier;  // suspend消息回调
+    qemu_register_suspend_notifier(&amp;state-&gt;suspend);
+
+    xc_get_hvm_param(xen_xc, xen_domid, HVM_PARAM_IOREQ_PFN, &amp;ioreq_pfn);
+    DPRINTF("shared page at pfn %lx\n", ioreq_pfn);
+    state-&gt;shared_page = xc_map_foreign_range(xen_xc, xen_domid, XC_PAGE_SIZE,
+                                              PROT_READ|PROT_WRITE, ioreq_pfn);
+    ...
+    xc_get_hvm_param(xen_xc, xen_domid, HVM_PARAM_BUFIOREQ_PFN, &amp;ioreq_pfn);
+    DPRINTF("buffered io page at pfn %lx\n", ioreq_pfn);
+    state-&gt;buffered_io_page = xc_map_foreign_range(xen_xc, xen_domid, XC_PAGE_SIZE,
+                                                   PROT_READ|PROT_WRITE, ioreq_pfn);
+    ...
+    state-&gt;ioreq_local_port = g_malloc0(max_cpus * sizeof (evtchn_port_t));
+
+    /* FIXME: how about if we overflow the page here? */
+    for (i = 0; i &lt; max_cpus; i++) {
+        rc = xc_evtchn_bind_interdomain(state-&gt;xce_handle, xen_domid,
+                                        xen_vcpu_eport(state-&gt;shared_page, i));
+        if (rc == -1) {
+            fprintf(stderr, "bind interdomain ioctl error %d\n", errno);
+            return -1;
+        }
+        state-&gt;ioreq_local_port[i] = rc;
+    }
+
+    rc = xc_get_hvm_param(xen_xc, xen_domid, HVM_PARAM_BUFIOREQ_EVTCHN,
+            &amp;bufioreq_evtchn);
+    ...
+    rc = xc_evtchn_bind_interdomain(state-&gt;xce_handle, xen_domid,
+            (uint32_t)bufioreq_evtchn);
+    ...
+    state-&gt;bufioreq_local_port = rc;
+
+    /* Init RAM management */
+    xen_map_cache_init(xen_phys_offset_to_gaddr, state);     
+    xen_ram_init(ram_size);
+
+    qemu_add_vm_change_state_handler(xen_hvm_change_state_handler, state);    //？？？ 这个具体用途是？
+
+    state-&gt;memory_listener = xen_memory_listener;       // 内存region和xen log相关接口函数
+    QLIST_INIT(&amp;state-&gt;physmap);
+    memory_listener_register(&amp;state-&gt;memory_listener, &amp;address_space_memory);
+    state-&gt;log_for_dirtybit = NULL;
+
+    /* Initialize backend core &amp; drivers */
+    if (xen_be_init() != 0) {                                          // ???
+        fprintf(stderr, "%s: xen backend core setup failed\n", __FUNCTION__);
+        exit(1);
+    }
+    xen_be_register("console", &amp;xen_console_ops);
+    xen_be_register("vkbd", &amp;xen_kbdmouse_ops);
+    xen_be_register("qdisk", &amp;xen_blkdev_ops);
+    xen_read_physmap(state);
+
+    return 0;
+}
+
+/* Memory Ops */
+
+static void xen_ram_init(ram_addr_t ram_size)
+{
+    MemoryRegion *sysmem = get_system_memory();
+    ram_addr_t below_4g_mem_size, above_4g_mem_size = 0;
+    ram_addr_t block_len;
+
+    block_len = ram_size;
+    if (ram_size &gt;= HVM_BELOW_4G_RAM_END) {
+        /* Xen does not allocate the memory continuously, and keep a hole at
+         * HVM_BELOW_4G_MMIO_START of HVM_BELOW_4G_MMIO_LENGTH
+         */
+        block_len += HVM_BELOW_4G_MMIO_LENGTH;
+    }
+    memory_region_init_ram(&amp;ram_memory, "xen.ram", block_len);
+    vmstate_register_ram_global(&amp;ram_memory);
+
+    if (ram_size &gt;= HVM_BELOW_4G_RAM_END) {
+        above_4g_mem_size = ram_size - HVM_BELOW_4G_RAM_END;
+        below_4g_mem_size = HVM_BELOW_4G_RAM_END;
+    } else {
+        below_4g_mem_size = ram_size;
+    }
+
+    memory_region_init_alias(&amp;ram_640k, "xen.ram.640k",
+                             &amp;ram_memory, 0, 0xa0000);
+    memory_region_add_subregion(sysmem, 0, &amp;ram_640k);
+    /* Skip of the VGA IO memory space, it will be registered later by the VGA
+     * emulated device.
+     *
+     * The area between 0xc0000 and 0x100000 will be used by SeaBIOS to load
+     * the Options ROM, so it is registered here as RAM.
+     */
+    memory_region_init_alias(&amp;ram_lo, "xen.ram.lo",
+                             &amp;ram_memory, 0xc0000, below_4g_mem_size - 0xc0000);
+    memory_region_add_subregion(sysmem, 0xc0000, &amp;ram_lo);
+    if (above_4g_mem_size &gt; 0) {
+        memory_region_init_alias(&amp;ram_hi, "xen.ram.hi",
+                                 &amp;ram_memory, 0x100000000ULL,
+                                 above_4g_mem_size);
+        memory_region_add_subregion(sysmem, 0x100000000ULL, &amp;ram_hi);
+    }
+}
+
+static void xen_hvm_change_state_handler(void *opaque, int running,
+                                         RunState rstate)
+{
+    XenIOState *xstate = opaque;
+    if (running) {
+        xen_main_loop_prepare(xstate);
+    }
+}
+
+static void xen_main_loop_prepare(XenIOState *state)
+{
+    int evtchn_fd = -1;
+
+    if (state-&gt;xce_handle != XC_HANDLER_INITIAL_VALUE) {
+        evtchn_fd = xc_evtchn_fd(state-&gt;xce_handle);
+    }
+
+    state-&gt;buffered_io_timer = qemu_new_timer_ms(rt_clock, handle_buffered_io,      //跟buffered io啥关系？
+                                                 state);
+
+    if (evtchn_fd != -1) {
+        qemu_set_fd_handler(evtchn_fd, cpu_handle_ioreq, NULL, state);
+    }
+}
+
+static void xen_read_physmap(XenIOState *state)
+{
+    XenPhysmap *physmap = NULL;
+    unsigned int len, num, i;
+    char path[80], *value = NULL;
+    char **entries = NULL;
+
+    snprintf(path, sizeof(path),
+            "/local/domain/0/device-model/%d/physmap", xen_domid);
+    entries = xs_directory(state-&gt;xenstore, 0, path, &amp;num);
+    ...
+    for (i = 0; i &lt; num; i++) {
+        physmap = g_malloc(sizeof (XenPhysmap));
+        physmap-&gt;phys_offset = strtoull(entries[i], NULL, 16);
+        snprintf(path, sizeof(path),
+                "/local/domain/0/device-model/%d/physmap/%s/start_addr",
+                xen_domid, entries[i]);
+        value = xs_read(state-&gt;xenstore, 0, path, &amp;len);
+        ...
+        physmap-&gt;start_addr = strtoull(value, NULL, 16);
+        free(value);
+
+        snprintf(path, sizeof(path),
+                "/local/domain/0/device-model/%d/physmap/%s/size",
+                xen_domid, entries[i]);
+        value = xs_read(state-&gt;xenstore, 0, path, &amp;len);
+        if (value == NULL) {
+            free(physmap);
+            continue;
+        }
+        physmap-&gt;size = strtoull(value, NULL, 16);
+        free(value);
+
+        snprintf(path, sizeof(path),
+                "/local/domain/0/device-model/%d/physmap/%s/name",
+                xen_domid, entries[i]);
+        physmap-&gt;name = xs_read(state-&gt;xenstore, 0, path, &amp;len);
+
+        QLIST_INSERT_HEAD(&amp;state-&gt;physmap, physmap, list);
+    }
+    free(entries);
+}
+</code></pre>
+
+<h4>pc_init_pci_no_kvmclock</h4>
+
+<pre><code>static void pc_init_pci_no_kvmclock(QEMUMachineInitArgs *args)
+{
+    ram_addr_t ram_size = args-&gt;ram_size;
+    const char *cpu_model = args-&gt;cpu_model;
+    const char *kernel_filename = args-&gt;kernel_filename;
+    const char *kernel_cmdline = args-&gt;kernel_cmdline;
+    const char *initrd_filename = args-&gt;initrd_filename;
+    const char *boot_device = args-&gt;boot_device;
+    pc_init1(get_system_memory(),
+             get_system_io(),               // 此处代码里面未分析，可以后续补充
+             ram_size, boot_device,
+             kernel_filename, kernel_cmdline,
+             initrd_filename, cpu_model, 1, 0);
+}
+
+http://www.rudometov.com/materinskie-platy-i-chipsety-4-izd-22/
+
+/* PC hardware initialisation */
+static void pc_init1(MemoryRegion *system_memory,
+                     MemoryRegion *system_io,
+                     ram_addr_t ram_size,
+                     const char *boot_device,
+                     const char *kernel_filename,
+                     const char *kernel_cmdline,
+                     const char *initrd_filename,
+                     const char *cpu_model,
+                     int pci_enabled,
+                     int kvmclock_enabled)
+{
+    ....
+    pc_cpus_init(cpu_model);
+    ....
+
+    if (ram_size &gt;= 0xe0000000 ) {
+        above_4g_mem_size = ram_size - 0xe0000000;
+        below_4g_mem_size = 0xe0000000;
+    } else {
+        above_4g_mem_size = 0;
+        below_4g_mem_size = ram_size;
+    }
+
+    if (pci_enabled) {
+        pci_memory = g_new(MemoryRegion, 1);
+        memory_region_init(pci_memory, "pci", INT64_MAX);
+        rom_memory = pci_memory;
+    }
+
+    ....
+    } else {
+        gsi = qemu_allocate_irqs(gsi_handler, gsi_state, GSI_NUM_PINS);
+    }
+
+    if (pci_enabled) {
+        pci_bus = i440fx_init(&amp;i440fx_state, &amp;piix3_devfn, &amp;isa_bus, gsi,
+                              system_memory, system_io, ram_size,
+                              below_4g_mem_size,
+                              0x100000000ULL - below_4g_mem_size,
+                              0x100000000ULL + above_4g_mem_size,
+                              (sizeof(hwaddr) == 4
+                               ? 0
+                               : ((uint64_t)1 &lt;&lt; 62)),
+                              pci_memory, ram_memory);
+    }
+    isa_bus_irqs(isa_bus, gsi);
+    ....
+    } else if (xen_enabled()) {
+        i8259 = xen_interrupt_controller_init();
+    }
+    ....
+    for (i = 0; i &lt; ISA_NUM_IRQS; i++) {
+        gsi_state-&gt;i8259_irq[i] = i8259[i];
+    }
+    if (pci_enabled) {
+        ioapic_init_gsi(gsi_state, "i440fx");
+    }
+
+    pc_register_ferr_irq(gsi[13]);
+
+    pc_vga_init(isa_bus, pci_enabled ? pci_bus : NULL);
+    if (xen_enabled()) {
+        pci_create_simple(pci_bus, -1, "xen-platform");
+    }
+
+    /* init basic PC hardware */
+    pc_basic_device_init(isa_bus, gsi, &amp;rtc_state, &amp;floppy, xen_enabled());
+
+    pc_nic_init(isa_bus, pci_bus);
+
+    ide_drive_get(hd, MAX_IDE_BUS);
+    if (pci_enabled) {
+        PCIDevice *dev;
+        if (xen_enabled()) {
+            dev = pci_piix3_xen_ide_init(pci_bus, hd, piix3_devfn + 1);
+        } else {
+            dev = pci_piix3_ide_init(pci_bus, hd, piix3_devfn + 1);
+        }
+        idebus[0] = qdev_get_child_bus(&amp;dev-&gt;qdev, "ide.0");
+        idebus[1] = qdev_get_child_bus(&amp;dev-&gt;qdev, "ide.1");
+    }
+    ....
+    audio_init(isa_bus, pci_enabled ? pci_bus : NULL);
+
+    pc_cmos_init(below_4g_mem_size, above_4g_mem_size, boot_device,
+                 floppy, idebus[0], idebus[1], rtc_state);
+
+    if (pci_enabled &amp;&amp; usb_enabled(false)) {
+        pci_create_simple(pci_bus, piix3_devfn + 2, "piix3-usb-uhci");
+    }
+
+    if (pci_enabled &amp;&amp; acpi_enabled) {
+        i2c_bus *smbus;
+
+        smi_irq = qemu_allocate_irqs(pc_acpi_smi_interrupt, first_cpu, 1);
+        /* TODO: Populate SPD eeprom data.  */
+        smbus = piix4_pm_init(pci_bus, piix3_devfn + 3, 0xb100,
+                              gsi[9], *smi_irq,
+                              kvm_enabled(), fw_cfg);
+        smbus_eeprom_init(smbus, 8, NULL, 0);
+    }
+
+    if (pci_enabled) {
+        pc_pci_device_init(pci_bus);
+    }
+}
+</code></pre>
+</div>
+  
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
       <h1 class="entry-title"><a href="/blog/2014/08/15/github-plus-octopressbo-ke-pei-zhi/">Github+octopress博客配置</a></h1>
     
     
@@ -111,6 +1008,10 @@ rake deploy失败
     <section>
   <h1>Recent Posts</h1>
   <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2014/08/15/libxlhe-qemu-xenjiao-hu-dai-ma-fen-xi/">Libxl和qemu-xen交互代码分析</a>
+      </li>
     
       <li class="post">
         <a href="/blog/2014/08/15/github-plus-octopressbo-ke-pei-zhi/">Github+octopress博客配置</a>
